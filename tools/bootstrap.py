@@ -4,6 +4,7 @@ from pathlib import Path
 import hashlib
 import subprocess
 import tarfile
+import urllib.error
 import urllib.request
 import zipfile
 import xml.etree.ElementTree as ET
@@ -81,8 +82,14 @@ if not (sdk / 'platform-tools/source.properties').is_file():
     document = ET.fromstring(data)
     package = next(p for p in document.findall('remotePackage') if p.attrib['path'] == 'platform-tools')
     item = next(a for a in package.findall('archives/archive') if a.findtext('host-os') == 'linux')
-    archive = download('https://dl.google.com/android/repository/' + item.findtext('complete/url'),
-                       WORK / 'platform-tools.zip', item.findtext('complete/checksum'), 'sha1')
+    try:
+        archive = download('https://dl.google.com/android/repository/' + item.findtext('complete/url'),
+                           WORK / 'platform-tools.zip', item.findtext('complete/checksum'), 'sha1')
+    except urllib.error.HTTPError as error:
+        if error.code != 404:
+            raise
+        archive = download('https://dl.google.com/android/repository/platform-tools_r37.0.1-linux.zip',
+                           WORK / 'platform-tools.zip', '477254aa5f903c15cf51001717bdf347fb6b53e0', 'sha1')
     with zipfile.ZipFile(archive) as stream:
         stream.extractall(sdk)
         for info in stream.infolist():
